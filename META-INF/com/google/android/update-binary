@@ -1,0 +1,33 @@
+#!/sbin/sh
+#################
+# Magisk / KernelSU / APatch Module Installer Script
+#################
+OUTFD=$2
+ZIPFILE=$3
+
+mount /data 2>/dev/null
+
+if [ -f /data/adb/ap/bin/busybox ]; then
+    BUSYBOX=/data/adb/ap/bin/busybox
+elif [ -f /data/adb/magisk/busybox ]; then
+    BUSYBOX=/data/adb/magisk/busybox
+elif [ -f /data/adb/ksu/bin/busybox ]; then
+    BUSYBOX=/data/adb/ksu/bin/busybox
+else
+    BUSYBOX=busybox
+fi
+
+MODPATH=/data/adb/modules/oneplus_cn_gps_fix
+rm -rf "$MODPATH" 2>/dev/null
+mkdir -p "$MODPATH"
+
+# Extract zip
+unzip -o "$ZIPFILE" -d "$MODPATH" >&2
+rm -rf "$MODPATH/META-INF" 2>/dev/null
+
+if [ -f "$MODPATH/customize.sh" ]; then
+    . "$MODPATH/customize.sh"
+    rm -f "$MODPATH/customize.sh"
+fi
+
+exit 0

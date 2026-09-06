@@ -1,0 +1,29 @@
+name: Build and Release Module
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Package Magisk/APatch Module
+        run: |
+          zip -r9 OnePlus_China_GPS_BeiDou_Fix.zip META-INF system customize.sh gps.conf module.prop post-fs-data.sh service.sh README.md LICENSE
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: OnePlus_China_GPS_BeiDou_Fix.zip
+          name: Release ${{ github.ref_name }}
+          draft: false
+          prerelease: false
