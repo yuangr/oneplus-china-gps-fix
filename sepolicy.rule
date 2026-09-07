@@ -1,0 +1,9 @@
+# Allow GNSS HAL, Location services, and XTRA daemon to read files from adb/magisk/vendor
+allow { vendor_hal_gnss_qti vendor_location vendor_location_xtra_daemon vendor_location_lowi_server } { adb_data_file magisk_file vendor_configs_file vendor_file system_file } { file dir } *
+
+# Allow process signaling between location launcher and xtra-daemon
+allow vendor_location vendor_location_xtra_daemon process { signal sigkill sigstop }
+allow vendor_location_xtra_daemon vendor_location process { signal sigkill sigstop }
+
+# Allow altitude framework service lookup
+allow untrusted_app fwk_altitude_service service_manager find
