@@ -45,6 +45,11 @@ sync_xtra() {
     last_injected=0
 
     while true; do
+        # 关机检测：如果系统正在关机/重启，立刻退出守护进程，防止死锁 Binder
+        if [ "$(getprop sys.shutdown.requested)" != "" ]; then
+            exit 0
+        fi
+
         now=$(date +%s)
         # Periodically refresh ephemeris cache every 6 hours
         if [ $((now - last_sync)) -ge 21600 ]; then
@@ -53,17 +58,25 @@ sync_xtra() {
             fi
         fi
 
-        # Detect if any foreground/background app has activated the GPS hardware (mStarted=true)
-        if dumpsys location 2>/dev/null | grep -q "mStarted=true"; then
-            # Rate-limit injection to at most once every 15 seconds during active positioning
-            if [ $((now - last_injected)) -ge 15 ]; then
-                cmd location providers send-extra-command gps force_time_injection 2>/dev/null
-                cmd location providers send-extra-command gps force_psds_injection 2>/dev/null
-                last_injected=$now
+        # 耗电优化：只有在亮屏状态下，才以高频率检测 GPS 活动
+        is_awake=$(dumpsys power 2>/dev/null | grep -q "mWakefulness=Awake" && echo 1 || echo 0)
+        
+        if [ "$is_awake" = "1" ]; then
+            # Detect if any foreground/background app has activated the GPS hardware (mStarted=true)
+            if dumpsys location 2>/dev/null | grep -q "mStarted=true"; then
+                # Rate-limit injection to at most once every 15 seconds during active positioning
+                if [ $((now - last_injected)) -ge 15 ]; then
+                    cmd location providers send-extra-command gps force_time_injection 2>/dev/null
+                    cmd location providers send-extra-command gps force_psds_injection 2>/dev/null
+                    last_injected=$now
+                fi
+                sleep 5
+            else
+                sleep 10
             fi
-            sleep 3
         else
-            sleep 5
+            # 息屏状态下，放慢轮询频率至 30 秒，极大地节省待机电量
+            sleep 30
         fi
     done
 ) &

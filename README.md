@@ -78,6 +78,9 @@ adb push OnePlus_China_GPS_BeiDou_Fix.zip /sdcard/Download/
 
 ## 📝 更新日志
 
+### 🚀 v1.2.3
+- **守护进程耗电与重启 Bug 修复**：增加了关机状态检测 (`sys.shutdown.requested`)，防止在手机重启/关机时因轮询 `system_server` 导致 Binder 死锁卡在重启界面；同时加入了亮息屏检测，息屏时大幅降低轮询频率，进一步减少待机耗电。
+
 ### 🚀 v1.2.2
 - **兼容性与格式修复**：恢复了老旧高通平台所需的 `XTRA_SERVER` (无编号) 键名，同时保留新平台的 `XTRA_SERVER_1` 以实现最大兼容。
 - **跨平台一致性**：强制将所有脚本及配置文件行尾符规范为 Linux (LF)，解决在 Windows 环境下打包刷入导致的 Android shell `\r` 解析失败风险。
