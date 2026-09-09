@@ -78,6 +78,11 @@ adb push OnePlus_China_GPS_BeiDou_Fix.zip /sdcard/Download/
 
 ## 📝 更新日志
 
+### 🚀 v1.2.1
+- **AOSP 原生 PSDS 键名补齐**：补全 `gps.conf` 中缺失的 AOSP 标准键名（`LONGTERM_PSDS_SERVER_1..3`、`NORMAL_PSDS_SERVER`、`REALTIME_PSDS_SERVER`）以及高通底层键名 `XTRA_SERVER_1`，确保 Android 定位框架原生可在应用请求定位时自动调度下载注入。
+- **智能响应式守护进程**：优化后台守护机制，由单纯开机休眠升级为实时监控系统定位状态（`mStarted=true`），当任何前台/后台应用唤醒 GPS 硬件时，毫秒级补发最新轨道星历与时间注入，杜绝硬件休眠导致开机后首次定位依然冷启动的缺陷。
+- **多挂载点全面覆盖**：进一步将 `/system/etc/gps.conf` 纳入动态 bind mount，保证不同挂载机制下系统全局生效。
+
 ### 🚀 v1.2.0
 - **全星系星历秒级热注入**：解决类原生 ROM 在缺少运营商组件时首次搜星长达 80 秒纯冷启动的问题，开机与每隔 12 小时自动拉取高通中国 CDN 预报星历并主动注入基带。
 - **证书路径修复**：修正 `gps.conf` 中不存在的 Linux 证书路径为 Android 标准 `/system/etc/security/cacerts`。
