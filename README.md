@@ -78,6 +78,11 @@ adb push OnePlus_China_GPS_BeiDou_Fix.zip /sdcard/Download/
 
 ## 📝 更新日志
 
+### 🚀 v1.2.2
+- **兼容性与格式修复**：恢复了老旧高通平台所需的 `XTRA_SERVER` (无编号) 键名，同时保留新平台的 `XTRA_SERVER_1` 以实现最大兼容。
+- **跨平台一致性**：强制将所有脚本及配置文件行尾符规范为 Linux (LF)，解决在 Windows 环境下打包刷入导致的 Android shell `\r` 解析失败风险。
+- **早期挂载点同步**：更新了 `post-fs-data.sh` 阶段的挂载列表，与 service.sh 保持完全同步以防止早期系统服务读到旧配置。
+
 ### 🚀 v1.2.1
 - **AOSP 原生 PSDS 键名补齐**：补全 `gps.conf` 中缺失的 AOSP 标准键名（`LONGTERM_PSDS_SERVER_1..3`、`NORMAL_PSDS_SERVER`、`REALTIME_PSDS_SERVER`）以及高通底层键名 `XTRA_SERVER_1`，确保 Android 定位框架原生可在应用请求定位时自动调度下载注入。
 - **智能响应式守护进程**：优化后台守护机制，由单纯开机休眠升级为实时监控系统定位状态（`mStarted=true`），当任何前台/后台应用唤醒 GPS 硬件时，毫秒级补发最新轨道星历与时间注入，杜绝硬件休眠导致开机后首次定位依然冷启动的缺陷。
