@@ -1,6 +1,6 @@
 id=oneplus_cn_gps_fix
 name=OnePlus China GPS / BeiDou Accelerator
-version=v1.1.0
-versionCode=110
+version=v1.2.0
+versionCode=120
 author=Antigravity
-description=针对一加旗舰 (Snapdragon 8 Elite / Gen 2 / Gen 3) 及 Android 15/16 类原生 ROM (AviumUI/Infinity-X/LineageOS) 优化。支持 SELinux Enforcing 强制模式。配置阿里云/腾讯 NTP 时间同步、千寻位置 A-GPS SUPL 辅助定位、高通 XTRA 3.0 中国节点全星系星历秒级下载。
+description=针对一加旗舰 (Snapdragon 8 Elite / Gen 2 / Gen 3) 及 Android 15/16 类原生 ROM (AviumUI/Infinity-X/LineageOS) 优化。支持 SELinux Enforcing 强制模式。支持高通 XTRA 3.0 全星系星历开机秒级热注入、阿里云高精授时与千寻位置 SUPL 辅助定位。

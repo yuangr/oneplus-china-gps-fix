@@ -25,18 +25,19 @@
 
 ## ✨ 核心优化特性
 
+- 🛰 **高通 XTRA 3.0 全星系预报星历秒级热注入 (v1.2.0 新增)**：
+  - 内置智能后台守护，开机与每隔 12 小时自动从高通官方国内 CDN 节点（`https://pathcf.prod.xtracloud.cn/xtra3Mgrbeji.bin`）拉取 7 天预报星历（64KB）。
+  - 通过 Android 定位框架标准接口（`force_psds_injection` 与 `force_time_injection`）主动热注入高通基带，彻底解决类原生系统由于缺少运营商后台导致首次定位沦为 **80 秒纯冷启动** 的顽疾，实现 **1~3 秒极速秒定**。
 - 🇨🇳 **千寻位置国家北斗地基增强网 SUPL**：
-  - 配置 `supl.qxwz.com:7275`，实测秒连开放。
-  - 升级 SUPL 协议版本至 `0x20000` (SUPL 2.0)，全面支持 4G/5G 多星系定位。
+  - 配置 `supl.qxwz.com:7275`，优化 SUPL 握手与超时机制，移除在类原生 ROM 上不存在的运营商 NFW 规则，避免基带等待 SIM IMSI 假死。
 - ⚡️ **高精度国内双云授时**：
   - 注入阿里云（`ntp.aliyun.com`）、腾讯云（`ntp.tencent.com`）与中国 NTP 池（`cn.pool.ntp.org`），网络延迟降至 20ms，丢包率 0%。
   - 开机通过 `settings put global ntp_server` 同步修正 Android 全局系统授时。
-- 🛰 **高通 XTRA 3.0 中国节点全星系星历**：
-  - 配置高通官方国内特供 CDN 节点 `https://pathcf.prod.xtracloud.cn/xtra3Mgrbeji.bin`。
-  - 完整包含 GPS（M）、GLONASS（g）、Galileo（r）、BeiDou 北斗（b）、QZSS（e）全星系星历数据。
 - 🔒 **无损与高兼容性**：
+  - 修复 `gps.conf` 中的 CA 证书路径为 Android 标准 `/system/etc/security/cacerts`。
   - 完整保留原厂全部硬件射频损耗（RF Loss）、PPS 脉冲同步、DR 惯导与陀螺仪参数。
-  - 通过 `post-fs-data` 动态挂载，兼容 EROFS 只读分区与 Android 15/16 新架构。
+  - 通过 `post-fs-data` 与 `service.sh` 动态多点挂载，全面覆盖 `/odm/etc/`、`/vendor/odm/etc/` 与 `/vendor/etc/`。
+  - 内置 `sepolicy.rule` 策略注入，完美兼容 SELinux Enforcing 强制模式。
 
 ---
 
@@ -72,6 +73,24 @@ adb push OnePlus_China_GPS_BeiDou_Fix.zip /sdcard/Download/
 3. 在窗边或室外开阔处打开导航，观察顶部状态：
    - 数秒内即可看到大量中国国旗 🇨🇳（BDS / 北斗）卫星被锁定。
    - 高德地图顶部快速点亮并提示：**“已连接北斗卫星导航”**。
+
+---
+
+## 📝 更新日志
+
+### 🚀 v1.2.0
+- **全星系星历秒级热注入**：解决类原生 ROM 在缺少运营商组件时首次搜星长达 80 秒纯冷启动的问题，开机与每隔 12 小时自动拉取高通中国 CDN 预报星历并主动注入基带。
+- **证书路径修复**：修正 `gps.conf` 中不存在的 Linux 证书路径为 Android 标准 `/system/etc/security/cacerts`。
+- **时间注入权限开放**：开启 `CAPABILITIES=0x37`（+ `TIME_INJECTION`），支持系统框架直接下发高精 NTP 授时。
+- **SUPL 假死消除**：移除未安装的 `carrierlocation` NFW 规则，杜绝基带因请求 IMSI 失败产生的 30~60 秒超时假死。
+- **挂载覆盖增强**：自动补全 `/vendor/etc/gps.conf` 动态挂载点。
+- **CI 打包修复**：GitHub Actions 自动构建补齐 `sepolicy.rule`。
+
+### 🚀 v1.1.0
+- **SELinux Enforcing 深度适配**：补充 `sepolicy.rule` 规则，消除 AviumUI / LineageOS 强制模式下的 AVC 权限拒绝。
+
+### 🚀 v1.0.0
+- 初始版本发布，支持阿里云/腾讯云 NTP 授时与千寻位置 SUPL 2.0。
 
 ---
 
