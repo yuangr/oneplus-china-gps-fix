@@ -17,7 +17,7 @@ jobs:
 
       - name: Package Magisk/APatch Module
         run: |
-          zip -r9 OnePlus_China_GPS_BeiDou_Fix.zip META-INF system customize.sh gps.conf module.prop post-fs-data.sh service.sh sepolicy.rule README.md LICENSE
+          zip -r9 OnePlus_China_GPS_BeiDou_Fix.zip META-INF system vendor odm customize.sh gps.conf module.prop post-fs-data.sh service.sh restart.sh sepolicy.rule README.md LICENSE
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
