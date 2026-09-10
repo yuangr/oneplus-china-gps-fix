@@ -95,22 +95,11 @@ adb push OnePlus_China_GPS_BeiDou_Fix.zip /sdcard/Download/
 ### 🚀 v1.3.0
 - **全节点纯化与去污染**：彻底剔除 `gps.conf` 中被国内屏蔽的海外 XTRA / PSDS 节点，所有备用节点统一采用国内高通官方 CloudFront CDN，杜绝 AOSP 随机选点触发的 30~90 秒网络连接挂死。
 - **SUPL 免证书端口切换**：将千寻位置 SUPL 端口由 `7275` 切换为免证书握手的 `7276` 端口，消除基带因缺少私有 CA 证书造成的 TLS 握手假死。
+- **AOSP PSDS 键名全兼容与热注入增强**：补全 AOSP 标准键名（`LONGTERM_PSDS_SERVER` 等）与高通底层 `XTRA_SERVER` 系列键名；配合响应式后台守护，应用唤醒 GPS 硬件时毫秒级热补发轨道星历与高精授时。
+- **进程耗电与稳定性优化**：加入亮息屏动态轮询检测与关机状态识别（`sys.shutdown.requested`），防止关机死锁并极大降低待机功耗；全项目脚本与配置文件行尾符统一规范为 Linux (LF)。
 - **守护进程防阻塞改造**：重构 `service.sh`，彻底移除依赖 ICMP 的 `ping` 网络死循环检测，改用路由表与连接服务双重判断，完美兼容拦截 Ping 报文的移动蜂窝数据网络。
 - **Android 12~16 全版本注入适配**：支持 `cmd location providers send-extra-command` 与 `cmd location send-extra-command` 双重兼容回退。
-- **KernelSU / APatch 深度适配**：直接提供顶层 `vendor` 与 `odm` 镜像目录，解决 OverlayFS 无法穿透动态分区的问题；扩充 AIDL GNSS (`hal_gnss_default` 等) SELinux 策略规则。
-
-### 🚀 v1.2.3
-- **守护进程耗电与重启 Bug 修复**：增加了关机状态检测 (`sys.shutdown.requested`)，防止在手机重启/关机时因轮询 `system_server` 导致 Binder 死锁卡在重启界面；同时加入了亮息屏检测，息屏时大幅降低轮询频率，进一步减少待机耗电。
-
-### 🚀 v1.2.2
-- **兼容性与格式修复**：恢复了老旧高通平台所需的 `XTRA_SERVER` (无编号) 键名，同时保留新平台的 `XTRA_SERVER_1` 以实现最大兼容。
-- **跨平台一致性**：强制将所有脚本及配置文件行尾符规范为 Linux (LF)，解决在 Windows 环境下打包刷入导致的 Android shell `\r` 解析失败风险。
-- **早期挂载点同步**：更新了 `post-fs-data.sh` 阶段的挂载列表，与 service.sh 保持完全同步以防止早期系统服务读到旧配置。
-
-### 🚀 v1.2.1
-- **AOSP 原生 PSDS 键名补齐**：补全 `gps.conf` 中缺失的 AOSP 标准键名（`LONGTERM_PSDS_SERVER_1..3`、`NORMAL_PSDS_SERVER`、`REALTIME_PSDS_SERVER`）以及高通底层键名 `XTRA_SERVER_1`，确保 Android 定位框架原生可在应用请求定位时自动调度下载注入。
-- **智能响应式守护进程**：优化后台守护机制，由单纯开机休眠升级为实时监控系统定位状态（`mStarted=true`），当任何前台/后台应用唤醒 GPS 硬件时，毫秒级补发最新轨道星历与时间注入，杜绝硬件休眠导致开机后首次定位依然冷启动的缺陷。
-- **多挂载点全面覆盖**：进一步将 `/system/etc/gps.conf` 纳入动态 bind mount，保证不同挂载机制下系统全局生效。
+- **KernelSU / APatch 深度适配与多点挂载**：直接提供顶层 `vendor` 与 `odm` 镜像目录，解决 OverlayFS 无法穿透动态分区的问题；在 `post-fs-data` 与 `service` 阶段覆盖 `/odm/etc/`、`/vendor/etc/` 与 `/system/etc/` 全局挂载；扩充 AIDL GNSS (`hal_gnss_default` 等) SELinux 策略规则。
 
 ### 🚀 v1.2.0
 - **全星系星历秒级热注入**：解决类原生 ROM 在缺少运营商组件时首次搜星长达 80 秒纯冷启动的问题，开机与每隔 12 小时自动拉取高通中国 CDN 预报星历并主动注入基带。
