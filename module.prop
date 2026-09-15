@@ -1,6 +1,6 @@
 id=oneplus_cn_gps_fix
-name=OnePlus China GPS / BeiDou Accelerator
-version=v1.3.0
-versionCode=130
+name=OnePlus China GPS Fix
+version=v1.4.0
+versionCode=140
 author=Antigravity
-description=针对一加旗舰 (Snapdragon 8 Elite / Gen 2 / Gen 3) 及 Android 15/16 类原生 ROM (AviumUI/Infinity-X/LineageOS) 优化。支持 SELinux Enforcing 强制模式。支持高通 XTRA 3.0 与 AOSP PSDS 全星系星历唤醒秒级热注入、阿里云高精授时与千寻位置 SUPL 辅助定位。
+description=一加 Ace 6（PLQ110 / 骁龙 8 至尊版 SM8750）、Evolution X Android 17。保留 ROM 硬件参数，统一系统挂载，每次开机请求辅助定位，无常驻轮询。升级需重启。
