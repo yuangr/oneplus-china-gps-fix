@@ -1,94 +1,116 @@
 #!/system/bin/sh
-# One bounded request per boot. Android owns download, retry and HAL injection.
 MODDIR=${0%/*}
-RUNDIR="$MODDIR/runtime"
-umask 077
-mkdir -p "$RUNDIR" || exit 1
-if [ "${1:-}" != --locked ]; then
-    # mksh may close inherited high-numbered descriptors. Let BusyBox hold
-    # the lock while running the entire child, instead of passing an FD.
-    for bb in /data/adb/ap/bin/busybox /data/adb/ksu/bin/busybox /data/adb/magisk/busybox; do
-        if [ -x "$bb" ]; then
-            exec "$bb" flock -n "$RUNDIR/service.lock" /system/bin/sh "$0" --locked
+
+# Wait for boot completion
+until [ "$(getprop sys.boot_completed)" = "1" ]; do
+    sleep 2
+done
+
+# Ensure domestic NTP
+settings put global ntp_server ntp.aliyun.com 2>/dev/null
+
+# Ensure bind mount is active and has valid SELinux label
+if [ -f "$MODDIR/gps.conf" ]; then
+    chcon u:object_r:vendor_configs_file:s0 "$MODDIR/gps.conf" 2>/dev/null
+    for target in /system/etc/gps.conf /odm/etc/gps.conf /vendor/odm/etc/gps.conf /vendor/etc/gps.conf; do
+        if [ -f "$target" ]; then
+            mount -o bind "$MODDIR/gps.conf" "$target" 2>/dev/null
+            chcon u:object_r:vendor_configs_file:s0 "$target" 2>/dev/null
         fi
     done
-    echo 'BusyBox required for the service lock' >&2
-    exit 1
 fi
-log_msg() {
-    printf '%s %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$*" >> "$RUNDIR/service.log"
-}
-if [ -f "$RUNDIR/service.log" ]; then
-    tail -100 "$RUNDIR/service.log" > "$RUNDIR/service.log.tmp" &&
-        mv "$RUNDIR/service.log.tmp" "$RUNDIR/service.log"
-fi
-is_stopping() {
-    [ -f "$MODDIR/disable" ] || [ -f "$MODDIR/remove" ] ||
-        [ -n "$(getprop sys.shutdown.requested)" ]
-}
-waited=0
-until [ "$(getprop sys.boot_completed)" = 1 ]; do
-    is_stopping && exit 0
-    [ "$waited" -ge 300 ] && { log_msg 'boot wait timed out'; exit 1; }
-    sleep 5
-    waited=$((waited + 5))
-done
-is_stopping && exit 0
-boot_id=$(cat /proc/sys/kernel/random/boot_id) || exit 1
-if [ "$(cat "$RUNDIR/requested_boot" 2>/dev/null)" = "$boot_id" ]; then
-    log_msg 'request already submitted this boot; exiting'
-    exit 0
-fi
-# Live upgrades wait for reboot to load the new overlays.
-if [ "$(cat "$RUNDIR/defer_boot" 2>/dev/null)" = "$boot_id" ]; then
-    log_msg 'upgrade staged; request deferred until reboot loads new overlays'
-    exit 0
-fi
-location_enabled=$(timeout -k 2 10 cmd location is-location-enabled 2>/dev/null)
-if [ "$location_enabled" != true ]; then
-    log_msg 'location disabled or unavailable; leaving normal GNSS requests to Android'
-    exit 0
-fi
-help_text=$(timeout -k 2 10 cmd location help 2>/dev/null)
-case "$help_text" in
-    *send-extra-command*) ;;
-    *) log_msg 'send-extra-command unsupported'; exit 1 ;;
-esac
-case "$help_text" in
-    *'providers command'*) command_style=providers ;;
-    *) command_style=legacy ;;
-esac
-send_request() {
-    # Binder receives cmd's output FDs. Do not pass an adb/module log file
-    # that system_server cannot receive/write under SELinux; use a pipe.
-    if [ "$command_style" = providers ]; then
-        request_output=$(timeout -k 2 10 cmd location providers send-extra-command gps "$1" 2>&1)
-    else
-        request_output=$(timeout -k 2 10 cmd location send-extra-command gps "$1" 2>&1)
+
+check_network() {
+    # Check default routing table (fastest, standard linux)
+    if ip route show default 2>/dev/null | grep -q "default"; then
+        return 0
     fi
-    request_status=$?
-    [ -z "$request_output" ] || log_msg "$request_output"
-    return "$request_status"
+    # Check connectivity service
+    if dumpsys connectivity 2>/dev/null | grep -q "state: CONNECTED"; then
+        return 0
+    fi
+    # Check DNS property
+    if [ -n "$(getprop net.dns1)" ]; then
+        return 0
+    fi
+    return 1
 }
-attempt=1
-while [ "$attempt" -le 3 ]; do
-    is_stopping && exit 0
-    if send_request force_psds_injection; then
-        # Records submission, NEVER download/injection success.
-        printf '%s\n' "$boot_id" > "$RUNDIR/requested_boot.tmp" &&
-            mv "$RUNDIR/requested_boot.tmp" "$RUNDIR/requested_boot"
-        log_msg 'PSDS command submitted; verify download and injection in GNSS logs'
-        is_stopping && exit 0
-        if send_request force_time_injection; then
-            log_msg 'time command submitted'
-        else
-            log_msg 'time command failed; normal framework time handling remains active'
+
+sync_xtra() {
+    # If curl exists, cache XTRA 3.0 data
+    if command -v curl >/dev/null 2>&1; then
+        mkdir -p /data/vendor/location
+        curl -s -k --connect-timeout 6 -m 15 -o /data/vendor/location/xtra3.bin https://pathcf.prod.xtracloud.cn/xtra3Mgrbeji.bin 2>/dev/null
+        if [ -s /data/vendor/location/xtra3.bin ]; then
+            chmod 644 /data/vendor/location/xtra3.bin
+            chown gps:gps /data/vendor/location/xtra3.bin 2>/dev/null
+            return 0
         fi
-        exit 0
     fi
-    log_msg "PSDS command failed (attempt $attempt/3)"
-    [ "$attempt" -eq 3 ] && break
-    sleep $((attempt * 15))
-    attempt=$((attempt + 1))
-done
-exit 1
+    return 1
+}
+
+inject_assistance() {
+    # Dual compatibility for different AOSP branches (cmd location providers vs cmd location)
+    cmd location providers send-extra-command gps force_time_injection 2>/dev/null || \
+    cmd location send-extra-command gps force_time_injection 2>/dev/null
+
+    cmd location providers send-extra-command gps force_psds_injection 2>/dev/null || \
+    cmd location send-extra-command gps force_psds_injection 2>/dev/null
+}
+
+# Responsive daemon: keep ephemeris fresh & hot-inject whenever GPS is requested by any app
+(
+    # Wait up to 30 seconds for initial network without hard blocking
+    net_waited=0
+    while ! check_network; do
+        sleep 3
+        net_waited=$((net_waited + 3))
+        if [ $net_waited -ge 30 ]; then
+            break
+        fi
+    done
+
+    sync_xtra
+    # Send initial assistance injection on boot
+    inject_assistance
+
+    last_sync=$(date +%s)
+    last_injected=0
+
+    while true; do
+        # 关机检测：如果系统正在关机/重启，立刻退出守护进程，防止死锁 Binder
+        if [ "$(getprop sys.shutdown.requested)" != "" ]; then
+            exit 0
+        fi
+
+        now=$(date +%s)
+        # Periodically refresh ephemeris cache every 6 hours
+        if [ $((now - last_sync)) -ge 21600 ]; then
+            if check_network; then
+                sync_xtra
+                last_sync=$now
+            fi
+        fi
+
+        # 耗电优化：只有在亮屏状态下，才以高频率检测 GPS 活动
+        is_awake=$(dumpsys power 2>/dev/null | grep -q "mWakefulness=Awake" && echo 1 || echo 0)
+        
+        if [ "$is_awake" = "1" ]; then
+            # Detect if any foreground/background app has activated the GPS hardware (mStarted=true)
+            if dumpsys location 2>/dev/null | grep -q "mStarted=true"; then
+                # Rate-limit injection to at most once every 15 seconds during active positioning
+                if [ $((now - last_injected)) -ge 15 ]; then
+                    inject_assistance
+                    last_injected=$now
+                fi
+                sleep 5
+            else
+                sleep 10
+            fi
+        else
+            # 息屏状态下，放慢轮询频率至 30 秒，极大地节省待机电量
+            sleep 30
+        fi
+    done
+) &
