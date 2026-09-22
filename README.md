@@ -2,6 +2,12 @@
 
 当前设备：**一加 Ace 6（PLQ110）、骁龙 8 至尊版（Snapdragon 8 Elite / SM8750）、Evolution X Android 17 / SDK 37**。
 
+## v1.4.4 (2026-09-22)
+
+- **彻底剔除有害 Bind Mount 逻辑**：排查并彻底清除 `service.sh` 中遗留的 `mount -o bind "$MODDIR/gps.conf" "$target"` 逻辑。在 v1.4.x 动态合成架构下，根目录 `gps.conf` 仅为 10 行差量补丁模板，开机误执行 bind 挂载会导致覆盖底层包含 446 行骁龙 8 至尊版（SM8750）硬件射频校准、星座掩码与多频点支持的完整配置文件，引发硬件 HAL 搜星失效。挂载已完全由 APatch / Magisk 的 OverlayFS 接管。
+- **全方位根治 Android 17 / APatch SELinux AVC 拦截**：在 `post-fs-data.sh` 与 `prepare-config.sh` 中针对合成下发目录执行递归 `chcon` 标签纠正（`system/odm` 与 `system/vendor` 标记为 `vendor_configs_file:s0`）；并在 `sepolicy.rule` 中补充放行规则，彻底解决 `vendor_hal_gnss_qti` 因 Treble 隔离无法读取配置文件的 AVC Denied 问题。
+- **重构后台守护进程为精简定时服务**：移除此前在亮屏搜星时每 15 秒高频无效触发 AOSP `force_psds_injection` 的 Binder 轮询，改为开机联网完成首次同步与时间注入，随后每 6 小时原子化安全刷新 XTRA 星历缓存（权限 `gps:gps` 644），零多余功耗开销。
+
 ## v1.4.3 (2026-09-21)
 
 - **彻底修正 AOSP 框架千寻 SUPL 端口为 7275**：此前 v1.4.2 虽然修正了 `gps.conf`，但 AOSP 框架专用的 `framework.conf` 仍遗留 7276 端口；导致类原生系统 Framework 在向千寻位置请求 A-GPS 时超时挂死，引发高德地图等导航在冷启动时因等待辅助定位超时而以弱信号基站模式初始化（搜星延迟拉长至 3 分钟以上）。本次更新彻底将 Framework 侧（`gps_debug.conf`）与 HAL 侧（`gps.conf`）对齐纠正为标准通畅的 **`7275`** 端口与 TLS 通道。

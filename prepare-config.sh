@@ -58,5 +58,13 @@ for entry in odm:/odm/etc/gps.conf:system/odm/etc/gps.conf vendor:/vendor/etc/gp
     mkdir -p "${MODDIR}/${output%/*}"
     gps_awk -f "$MODDIR/merge-config.awk" "$patch" "$original" > "$MODDIR/$output"
     chmod 644 "$MODDIR/$output"
+    case "$output" in
+        system/odm/*|system/vendor/*)
+            chcon u:object_r:vendor_configs_file:s0 "$MODDIR/$output" 2>/dev/null || true
+            ;;
+        system/etc/*)
+            chcon u:object_r:system_file:s0 "$MODDIR/$output" 2>/dev/null || true
+            ;;
+    esac
 done
 printf '%s\n' "$fingerprint" > "$MODDIR/originals/fingerprint"

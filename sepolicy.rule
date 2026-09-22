@@ -1,2 +1,15 @@
-# No extra allow rules. Use standard system/vendor config labels.
-# Diagnose specific AVCs before adding narrowly scoped permissions.
+# Allow Qualcomm GNSS HAL and location daemons to access config files regardless of overlay mount labeling
+allow vendor_hal_gnss_qti system_file file { read open getattr map }
+allow vendor_hal_gnss_qti system_file dir { read open search getattr }
+allow vendor_hal_gnss_qti vendor_configs_file file { read open getattr map }
+allow vendor_hal_gnss_qti vendor_configs_file dir { read open search getattr }
+
+allow vendor_location system_file file { read open getattr map }
+allow vendor_location system_file dir { read open search getattr }
+allow vendor_location vendor_configs_file file { read open getattr map }
+allow vendor_location vendor_configs_file dir { read open search getattr }
+
+allow vendor_qsap_location system_file file { read open getattr map }
+allow vendor_qsap_location system_file dir { read open search getattr }
+allow vendor_qsap_location vendor_configs_file file { read open getattr map }
+allow vendor_qsap_location vendor_configs_file dir { read open search getattr }

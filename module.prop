@@ -1,6 +1,6 @@
 id=oneplus_cn_gps_fix
 name=OnePlus China GPS Fix
-version=v1.4.3
-versionCode=143
+version=v1.4.4
+versionCode=144
 author=Antigravity
-description=一加 Ace 6（PLQ110 / 骁龙 8 至尊版 SM8750）、Evolution X Android 17。彻底修正千寻 SUPL 端口为 7275（含 AOSP framework 配置）；保留 ROM 硬件参数，统一系统挂载，开机自愈。升级需重启。
+description=一加 Ace 6（PLQ110 / 骁龙 8 至尊版 SM8750）、Evolution X Android 17。彻底移除错误 bind 挂载并修复 SELinux AVC 拦截；保留 ROM 完整硬件射频参数，修正千寻 SUPL 7275 与高通国内 XTRA 缓存。升级需重启。
