@@ -1,15 +1,4 @@
-# Allow Qualcomm GNSS HAL and location daemons to access config files regardless of overlay mount labeling
-allow vendor_hal_gnss_qti system_file file { read open getattr map }
-allow vendor_hal_gnss_qti system_file dir { read open search getattr }
-allow vendor_hal_gnss_qti vendor_configs_file file { read open getattr map }
-allow vendor_hal_gnss_qti vendor_configs_file dir { read open search getattr }
-
-allow vendor_location system_file file { read open getattr map }
-allow vendor_location system_file dir { read open search getattr }
-allow vendor_location vendor_configs_file file { read open getattr map }
-allow vendor_location vendor_configs_file dir { read open search getattr }
-
-allow vendor_qsap_location system_file file { read open getattr map }
-allow vendor_qsap_location system_file dir { read open search getattr }
-allow vendor_qsap_location vendor_configs_file file { read open getattr map }
-allow vendor_qsap_location vendor_configs_file dir { read open search getattr }
+# Evolution X Android 17 lacks these two vendor policy grants. They are based
+# on the exact boot AVCs emitted when loc_launcher starts Qualcomm helpers.
+allow vendor_location vendor_location_xtra_daemon_exec file execute_no_trans
+allow vendor_location vendor_location_lowi_server_exec file execute_no_trans

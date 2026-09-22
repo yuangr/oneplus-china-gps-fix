@@ -130,4 +130,12 @@ grep -q '^# retain comment$' "$ROOT/merged"
 /data/adb/ap/bin/busybox awk -f "$SRC/merge-config.awk" "$ROOT/override" "$ROOT/empty" > "$ROOT/from-empty"
 cmp "$ROOT/override" "$ROOT/from-empty"
 echo 'PASS selective merge preserves hardware, PSDS types, comments; deduplicates overrides'
+
+! grep -qE 'curl|/data/vendor/location|mount[[:space:]]+-o[[:space:]]+bind|while[[:space:]]+true' "$SRC/service.sh"
+grep -q 'force_psds_injection' "$SRC/service.sh"
+grep -q 'service.lock' "$SRC/service.sh"
+grep -q '^allow vendor_location vendor_location_xtra_daemon_exec file execute_no_trans$' "$SRC/sepolicy.rule"
+grep -q '^allow vendor_location vendor_location_lowi_server_exec file execute_no_trans$' "$SRC/sepolicy.rule"
+! grep -qE 'system_file|vendor_configs_file' "$SRC/sepolicy.rule"
+echo 'PASS no manual XTRA/cache/bind daemon; exact SELinux grants only'
 echo "ALL TESTS PASSED ($ROOT)"

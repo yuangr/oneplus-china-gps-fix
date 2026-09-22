@@ -8,15 +8,20 @@ mkdir -p "$MODDIR/originals" "$MODDIR/system"
 fingerprint=$(getprop ro.build.fingerprint)
 active=/data/adb/modules/oneplus_cn_gps_fix
 gps_awk() {
+    # Android 17 may expose a limited system awk that rejects this merge
+    # program. Root managers already ship a known-compatible BusyBox awk.
+    for bb in /data/adb/ap/bin/busybox /data/adb/ksu/bin/busybox /data/adb/magisk/busybox; do
+        if [ -x "$bb" ]; then
+            "$bb" awk "$@"
+            return
+        fi
+    done
     if command -v awk >/dev/null 2>&1; then
         awk "$@"
-    else
-        for bb in /data/adb/ap/bin/busybox /data/adb/ksu/bin/busybox /data/adb/magisk/busybox; do
-            if [ -x "$bb" ]; then "$bb" awk "$@"; return; fi
-        done
-        echo 'No awk implementation found' >&2
-        return 1
+        return
     fi
+    echo 'No compatible awk implementation found' >&2
+    return 1
 }
 if [ -n "$BASELINE" ]; then
     [ "$(cat "$BASELINE/fingerprint")" = "$fingerprint" ] || {

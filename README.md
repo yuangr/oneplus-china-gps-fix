@@ -2,6 +2,13 @@
 
 当前设备：**一加 Ace 6（PLQ110）、骁龙 8 至尊版（Snapdragon 8 Elite / SM8750）、Evolution X Android 17 / SDK 37**。
 
+## v1.4.5 (2026-09-22)
+
+- 删除无法通过 SELinux 访问 `/data/vendor/location` 的手工 XTRA 文件下载与常驻 6 小时刷新进程，恢复由 Android Framework 负责下载并向 HAL 注入的 `force_psds_injection`。
+- 每次开机最多提交一次请求；并发执行由 BusyBox `flock` 互斥，失败最多重试三次（15/30 秒退避），所有结果写入模块运行日志。
+- 根据一加 Ace 6 实机启动 AVC，仅放行 `vendor_location` 执行 `xtra-daemon` 与 `lowi-server` 所缺少的 `execute_no_trans`，移除读取全部 `system_file` / `vendor_configs_file` 的宽泛规则。
+- 安装时优先使用 Root 管理器自带 BusyBox AWK，修复 Android 17 系统 AWK 无法解析配置合并脚本的问题。
+
 ## v1.4.4 (2026-09-22)
 
 - **彻底剔除有害 Bind Mount 逻辑**：排查并彻底清除 `service.sh` 中遗留的 `mount -o bind "$MODDIR/gps.conf" "$target"` 逻辑。在 v1.4.x 动态合成架构下，根目录 `gps.conf` 仅为 10 行差量补丁模板，开机误执行 bind 挂载会导致覆盖底层包含 446 行骁龙 8 至尊版（SM8750）硬件射频校准、星座掩码与多频点支持的完整配置文件，引发硬件 HAL 搜星失效。挂载已完全由 APatch / Magisk 的 OverlayFS 接管。
@@ -41,10 +48,10 @@
 
 ## 验证
 
-- 模块 v1.4.3，挂载提供者（如 Hybrid Mount）正常启用。
+- 模块 v1.4.5，挂载提供者（如 Hybrid Mount）正常启用。
 - `/odm/etc/gps.conf` 与 `/system/etc/gps_debug.conf` 中千寻 SUPL 端口均为 `SUPL_PORT=7275`。
 - `/system/etc/gps_debug.conf` 包含国内高速 `LONGTERM_PSDS_SERVER_1`。
-- 通过 GNSS 测试软件（如 GPSTest）与高德地图验证冷启动秒级获取星历与北斗卫星锁定。
+- 通过 GNSS 测试软件（如 GPSTest）与高德地图记录同一开阔场地的冷启动 TTFF、参与定位卫星及精度；不要仅凭命令返回值宣称注入成功。
 
 ## 回滚
 

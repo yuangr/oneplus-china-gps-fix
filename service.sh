@@ -1,86 +1,106 @@
 #!/system/bin/sh
+# One bounded request per boot. Android owns download, retry and HAL injection.
 MODDIR=${0%/*}
+RUNDIR="$MODDIR/runtime"
+umask 077
+mkdir -p "$RUNDIR" || exit 1
 
-# Wait for boot completion
-until [ "$(getprop sys.boot_completed)" = "1" ]; do
-    sleep 2
+if [ "${1:-}" != --locked ]; then
+    # Keep the lock in BusyBox for the lifetime of the child. Android mksh may
+    # close inherited high-numbered file descriptors.
+    for bb in /data/adb/ap/bin/busybox /data/adb/ksu/bin/busybox /data/adb/magisk/busybox; do
+        if [ -x "$bb" ]; then
+            exec "$bb" flock -n "$RUNDIR/service.lock" /system/bin/sh "$0" --locked
+        fi
+    done
+    echo 'BusyBox required for the service lock' >&2
+    exit 1
+fi
+
+log_msg() {
+    printf '%s %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$*" >> "$RUNDIR/service.log"
+}
+
+if [ -f "$RUNDIR/service.log" ]; then
+    tail -100 "$RUNDIR/service.log" > "$RUNDIR/service.log.tmp" &&
+        mv "$RUNDIR/service.log.tmp" "$RUNDIR/service.log"
+fi
+
+is_stopping() {
+    [ -f "$MODDIR/disable" ] || [ -f "$MODDIR/remove" ] ||
+        [ -n "$(getprop sys.shutdown.requested)" ]
+}
+
+waited=0
+until [ "$(getprop sys.boot_completed)" = 1 ]; do
+    is_stopping && exit 0
+    [ "$waited" -ge 300 ] && { log_msg 'boot wait timed out'; exit 1; }
+    sleep 5
+    waited=$((waited + 5))
 done
+is_stopping && exit 0
 
-# Ensure domestic NTP
-settings put global ntp_server ntp.aliyun.com 2>/dev/null
+boot_id=$(cat /proc/sys/kernel/random/boot_id) || exit 1
+if [ "$(cat "$RUNDIR/requested_boot" 2>/dev/null)" = "$boot_id" ]; then
+    log_msg 'request already submitted this boot; exiting'
+    exit 0
+fi
 
-check_network() {
-    if ip route show default 2>/dev/null | grep -q "default"; then
-        return 0
+# A live module update must wait for reboot so that the new overlay and policy
+# are active before Android reads the GNSS configuration.
+if [ "$(cat "$RUNDIR/defer_boot" 2>/dev/null)" = "$boot_id" ]; then
+    log_msg 'upgrade staged; request deferred until reboot loads new overlays'
+    exit 0
+fi
+
+location_enabled=$(timeout -k 2 10 cmd location is-location-enabled 2>/dev/null)
+if [ "$location_enabled" != true ]; then
+    log_msg 'location disabled or unavailable; leaving normal GNSS requests to Android'
+    exit 0
+fi
+
+help_text=$(timeout -k 2 10 cmd location help 2>/dev/null)
+case "$help_text" in
+    *send-extra-command*) ;;
+    *) log_msg 'send-extra-command unsupported'; exit 1 ;;
+esac
+case "$help_text" in
+    *'providers command'*) command_style=providers ;;
+    *) command_style=legacy ;;
+esac
+
+send_request() {
+    # Binder receives cmd's output descriptors. Capture through a pipe first;
+    # redirecting Binder output directly to the module log fails under SELinux.
+    if [ "$command_style" = providers ]; then
+        request_output=$(timeout -k 2 10 cmd location providers send-extra-command gps "$1" 2>&1)
+    else
+        request_output=$(timeout -k 2 10 cmd location send-extra-command gps "$1" 2>&1)
     fi
-    if dumpsys connectivity 2>/dev/null | grep -q "state: CONNECTED"; then
-        return 0
-    fi
-    if [ -n "$(getprop net.dns1)" ]; then
-        return 0
-    fi
-    return 1
+    request_status=$?
+    [ -z "$request_output" ] || log_msg "$request_output"
+    return "$request_status"
 }
 
-sync_xtra() {
-    if command -v curl >/dev/null 2>&1; then
-        mkdir -p /data/vendor/location
-        if curl -s -k --connect-timeout 6 -m 15 -o /data/vendor/location/xtra3.bin.tmp https://pathcf.prod.xtracloud.cn/xtra3Mgrbeji.bin 2>/dev/null; then
-            if [ -s /data/vendor/location/xtra3.bin.tmp ]; then
-                mv -f /data/vendor/location/xtra3.bin.tmp /data/vendor/location/xtra3.bin
-                chmod 644 /data/vendor/location/xtra3.bin
-                chown gps:gps /data/vendor/location/xtra3.bin 2>/dev/null
-                chcon u:object_r:vendor_location_data_file:s0 /data/vendor/location/xtra3.bin 2>/dev/null || true
-                return 0
-            fi
+attempt=1
+while [ "$attempt" -le 3 ]; do
+    is_stopping && exit 0
+    if send_request force_psds_injection; then
+        # This records command submission, not download or HAL-injection success.
+        printf '%s\n' "$boot_id" > "$RUNDIR/requested_boot.tmp" &&
+            mv "$RUNDIR/requested_boot.tmp" "$RUNDIR/requested_boot"
+        log_msg 'PSDS command submitted; verify download and injection in GNSS logs'
+        is_stopping && exit 0
+        if send_request force_time_injection; then
+            log_msg 'time command submitted'
+        else
+            log_msg 'time command failed; normal framework time handling remains active'
         fi
-        rm -f /data/vendor/location/xtra3.bin.tmp
+        exit 0
     fi
-    return 1
-}
-
-inject_time() {
-    cmd location providers send-extra-command gps force_time_injection 2>/dev/null || \
-    cmd location send-extra-command gps force_time_injection 2>/dev/null
-}
-
-# Background daemon for assistance maintenance
-(
-    # Wait up to 30 seconds for initial network
-    net_waited=0
-    while ! check_network; do
-        sleep 3
-        net_waited=$((net_waited + 3))
-        if [ $net_waited -ge 30 ]; then
-            break
-        fi
-    done
-
-    if check_network; then
-        sync_xtra
-        inject_time
-    fi
-
-    last_sync=$(date +%s)
-
-    while true; do
-        # Stop immediately on shutdown/reboot
-        if [ -n "$(getprop sys.shutdown.requested)" ]; then
-            exit 0
-        fi
-
-        # Sleep in 60s increments to allow prompt shutdown exit
-        sleep 60
-
-        now=$(date +%s)
-        # Periodically refresh ephemeris cache every 6 hours
-        if [ $((now - last_sync)) -ge 21600 ]; then
-            if check_network; then
-                if sync_xtra; then
-                    inject_time
-                    last_sync=$now
-                fi
-            fi
-        fi
-    done
-) &
+    log_msg "PSDS command failed (attempt $attempt/3)"
+    [ "$attempt" -eq 3 ] && break
+    sleep $((attempt * 15))
+    attempt=$((attempt + 1))
+done
+exit 1

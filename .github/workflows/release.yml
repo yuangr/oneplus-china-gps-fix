@@ -2,8 +2,11 @@ name: Build and Release Module
 
 on:
   push:
+    branches:
+      - main
     tags:
       - 'v*'
+  pull_request:
   workflow_dispatch:
 
 jobs:
@@ -14,6 +17,13 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Validate module sources
+        run: |
+          bash -n customize.sh prepare-config.sh post-fs-data.sh service.sh restart.sh tests/test-module.sh
+          ! grep -Eq 'curl|/data/vendor/location|mount[[:space:]]+-o[[:space:]]+bind|while[[:space:]]+true' service.sh
+          grep -q 'force_psds_injection' service.sh
+          grep -q 'service.lock' service.sh
 
       - name: Package Magisk/APatch Module
         run: |
