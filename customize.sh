@@ -1,4 +1,4 @@
-ui_print '- OnePlus China GPS Fix v1.4.5'
+ui_print '- OnePlus China GPS Fix v1.4.7'
 ui_print '- OnePlus Ace 6 / SM8750 / Evolution X Android 17'
 ui_print '- Requires systemless mounting; APatch/KernelSU needs a mount provider'
 sh "$MODPATH/prepare-config.sh" || abort '- Could not safely prepare ROM-specific configuration'

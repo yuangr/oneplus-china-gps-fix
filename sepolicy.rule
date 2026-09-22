@@ -1,4 +1,13 @@
-# Evolution X Android 17 lacks these two vendor policy grants. They are based
-# on the exact boot AVCs emitted when loc_launcher starts Qualcomm helpers.
-allow vendor_location vendor_location_xtra_daemon_exec file execute_no_trans
-allow vendor_location vendor_location_lowi_server_exec file execute_no_trans
+# Evolution X Android 17 has complete policy for the dedicated Qualcomm helper
+# domains, but loc_launcher is missing the transitions into those domains.
+allow vendor_location vendor_location_xtra_daemon process { transition siginh rlimitinh }
+dontaudit vendor_location vendor_location_xtra_daemon process noatsecure
+type_transition vendor_location vendor_location_xtra_daemon_exec process vendor_location_xtra_daemon
+allow vendor_location_xtra_daemon vendor_location fd use
+allow vendor_location_xtra_daemon vendor_location process sigchld
+
+allow vendor_location vendor_location_lowi_server process { transition siginh rlimitinh }
+dontaudit vendor_location vendor_location_lowi_server process noatsecure
+type_transition vendor_location vendor_location_lowi_server_exec process vendor_location_lowi_server
+allow vendor_location_lowi_server vendor_location fd use
+allow vendor_location_lowi_server vendor_location process sigchld

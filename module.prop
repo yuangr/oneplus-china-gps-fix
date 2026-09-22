@@ -1,6 +1,6 @@
 id=oneplus_cn_gps_fix
 name=OnePlus China GPS Fix
-version=v1.4.5
-versionCode=145
+version=v1.4.7
+versionCode=147
 author=Antigravity
-description=一加 Ace 6（PLQ110 / 骁龙 8 至尊版 SM8750）、Evolution X Android 17。保留原厂 GNSS 参数；由 Framework 每次开机限次请求 PSDS/时间注入；精确修复 XTRA/LOWI 启动 AVC。升级需重启。
+description=一加 Ace 6（PLQ110 / 骁龙 8 至尊版 SM8750）、Evolution X Android 17。保留原厂 GNSS 参数；由 Framework 每次开机限次请求 PSDS/时间注入；让 XTRA/LOWI 进入原厂专用 SELinux 域。升级需重启。

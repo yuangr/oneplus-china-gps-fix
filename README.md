@@ -2,6 +2,16 @@
 
 当前设备：**一加 Ace 6（PLQ110）、骁龙 8 至尊版（Snapdragon 8 Elite / SM8750）、Evolution X Android 17 / SDK 37**。
 
+## v1.4.7 (2026-09-22)
+
+- 补齐 `loc_launcher` 进入 XTRA/LOWI 专用域时的 `siginh`、`rlimitinh`、父进程文件描述符使用及子进程回收权限；这些是 Android SELinux 标准域转换的一部分。
+- 实机临时策略验证后，`xtra-daemon` 与 `lowi-server` 均稳定留在专用域，且不再出现本组启动 AVC。
+
+## v1.4.6 (2026-09-22)
+
+- 将 `loc_launcher` 启动 `xtra-daemon` 与 `lowi-server` 的 SELinux 修复改为进入系统已定义的专用域；不再使用 `execute_no_trans` 让子进程停留在通用 `vendor_location` 域。
+- 实机验证 v1.4.5 的 `execute_no_trans` 会使 `xtra-daemon` 持续遭遇 `vndbinder` 与 `servicemanager` 拒绝；专用域已有完整的 Binder、网络和数据目录权限，补齐域转换才是正确修复。
+
 ## v1.4.5 (2026-09-22)
 
 - 删除无法通过 SELinux 访问 `/data/vendor/location` 的手工 XTRA 文件下载与常驻 6 小时刷新进程，恢复由 Android Framework 负责下载并向 HAL 注入的 `force_psds_injection`。
@@ -48,7 +58,7 @@
 
 ## 验证
 
-- 模块 v1.4.5，挂载提供者（如 Hybrid Mount）正常启用。
+- 模块 v1.4.7，挂载提供者（如 Hybrid Mount）正常启用。
 - `/odm/etc/gps.conf` 与 `/system/etc/gps_debug.conf` 中千寻 SUPL 端口均为 `SUPL_PORT=7275`。
 - `/system/etc/gps_debug.conf` 包含国内高速 `LONGTERM_PSDS_SERVER_1`。
 - 通过 GNSS 测试软件（如 GPSTest）与高德地图记录同一开阔场地的冷启动 TTFF、参与定位卫星及精度；不要仅凭命令返回值宣称注入成功。

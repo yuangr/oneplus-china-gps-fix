@@ -1,10 +1,24 @@
-# GPS 优化验证记录 — 2026-09-14
+# GPS 优化验证记录
 
 设备：一加 Ace 6 / PLQ110 / sun，骁龙 8 至尊版 Snapdragon 8 Elite / SM8750，Evolution X Android 17 / SDK 37。
 
+## v1.4.7 最终验证 — 2026-09-22
+
+- APatch 报告模块 `v1.4.7` / `versionCode=147`，已启用且没有待处理更新。
+- 完整重启后，`loc_launcher` 运行于 `vendor_location`；其子进程 `lowi-server` 和 `xtra-daemon` 分别稳定运行于系统已有的 `vendor_location_lowi_server` 与 `vendor_location_xtra_daemon` 专用域。
+- 冷启动及延时复查均没有出现与 `loc_launcher`、`lowi-server`、`xtra-daemon` 或上述域相关的新 AVC；模块没有常驻 `service.sh` 进程。
+- 服务日志在本次 boot ID 下记录一次 `PSDS command submitted` 和一次 `time command submitted`。这只能证明 Framework 接受命令，不能单独证明服务端下载及 HAL 注入成功。
+- `/odm/etc/gps.conf` 保持 452 行、`vendor_configs_file` 标签、`CAPABILITIES=0x17`、千寻 `SUPL_PORT=7275` 及原厂 XTRA 地址；`/system/etc/gps_debug.conf` 保持 `system_file` 标签。
+- `/proc/mounts` 共 168 项，仅有 `/odm/etc` 与 `/system/etc` 两个模块目录覆盖，没有 `gps.conf` 单文件绑定挂载。
+- 手机隔离测试全部通过：每开机一次请求、关闭定位、失败重试、并发锁、旧式命令、关机、热升级、禁用、配置合并及 SELinux 静态约束。
+
+v1.4.5 的 `execute_no_trans` 虽能启动原厂辅助进程，但让它们停留在 `vendor_location`，导致 `xtra-daemon` 持续遭遇 `vndbinder`/`servicemanager` 拒绝。v1.4.6 改用专用域后，又暴露出父进程资源和文件描述符继承权限不完整。v1.4.7 按 Android 标准域转换补齐 `siginh`、`rlimitinh`、`noatsecure` 静默项、父进程 FD 使用及 `sigchld`，实机验证稳定。
+
+仍需在室外开阔场地进行同条件冷启动 TTFF、参与定位卫星、精度与离线恢复 A/B 测试，才能量化定位效果。
+
 ## 实施结果
 
-- 本地 GPS 仓库更新至 v1.4.0 工作区版本，未推送 GitHub 或发布 Release。
+- GPS 模块已更新至 v1.4.7，并在目标手机完成安装、完整重启和冷启动检查。
 - 通过 APatch 官方命令行安装并重启；现有 Hybrid Mount 正常提供 systemless 配置覆盖。
 - 从只读 ROM 分区、独立挂载命名空间读取原始 ODM / framework 配置。ROM 原本没有 vendor/etc/gps.conf 和 system/etc/gps.conf，不再人为增加这两个副本。
 - 生成配置保留 61 项未覆盖的原厂设置，包括 CAPABILITIES=0x17、LPP_PROFILE=2；只变更明确列出的服务器配置及 SUPL 版本。
