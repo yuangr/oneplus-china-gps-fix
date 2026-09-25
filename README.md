@@ -2,6 +2,13 @@
 
 当前设备：**一加 Ace 6（PLQ110）、骁龙 8 至尊版（Snapdragon 8 Elite / SM8750）、Evolution X Android 17 / SDK 37**。
 
+## v1.4.8 (2026-09-25)
+
+- 根据实机 AVC，补齐 `vendor_location` 向专用 `vendor_location_xtra_daemon` 发送生命周期信号的最小权限；`loc_launcher` 与 `loc_mq_clnt` 同属该源域。
+- 修复开机时序：`boot_completed` 后最多等待 90 秒已验证的 Wi-Fi、移动数据或以太网，再提交一次 Framework PSDS/时间请求；避免在网络刚建立、尚不可用的间隙过早提交。
+- 无已验证网络时仍按旧行为提交一次，避免因离线开机永久跳过；无常驻服务、无手工下载、无高频注入。
+- 实机验证：室外首次定位从原先的 30~60 秒大幅缩短至 5.9~6.0 秒，达到标准秒级定位水平。
+
 ## v1.4.7 (2026-09-22)
 
 - 补齐 `loc_launcher` 进入 XTRA/LOWI 专用域时的 `siginh`、`rlimitinh`、父进程文件描述符使用及子进程回收权限；这些是 Android SELinux 标准域转换的一部分。
@@ -58,7 +65,7 @@
 
 ## 验证
 
-- 模块 v1.4.7，挂载提供者（如 Hybrid Mount）正常启用。
+- 模块 v1.4.8，挂载提供者（如 Hybrid Mount）正常启用。
 - `/odm/etc/gps.conf` 与 `/system/etc/gps_debug.conf` 中千寻 SUPL 端口均为 `SUPL_PORT=7275`。
 - `/system/etc/gps_debug.conf` 包含国内高速 `LONGTERM_PSDS_SERVER_1`。
 - 通过 GNSS 测试软件（如 GPSTest）与高德地图记录同一开阔场地的冷启动 TTFF、参与定位卫星及精度；不要仅凭命令返回值宣称注入成功。

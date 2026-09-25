@@ -59,6 +59,34 @@ if [ "$location_enabled" != true ]; then
     exit 0
 fi
 
+# boot_completed can precede Wi-Fi/mobile validation by a few seconds. Submitting
+# the one-per-boot request in that gap can make the framework start its work
+# before it has a usable route. Wait briefly for an already validated transport;
+# if it never appears, preserve the former behavior and submit once anyway.
+network_ready() {
+    snapshot=$(timeout -k 2 10 dumpsys connectivity 2>/dev/null) || return 1
+    case "$snapshot" in
+        *'ni{WIFI CONNECTED'*'IS_VALIDATED'*|*'ni{MOBILE CONNECTED'*'IS_VALIDATED'*|*'ni{ETHERNET CONNECTED'*'IS_VALIDATED'*)
+            return 0
+            ;;
+    esac
+    return 1
+}
+
+network_waited=0
+until network_ready; do
+    is_stopping && exit 0
+    [ "$network_waited" -ge 90 ] && {
+        log_msg 'no validated network within 90 seconds; submitting the normal one-per-boot request'
+        break
+    }
+    sleep 5
+    network_waited=$((network_waited + 5))
+done
+if [ "$network_waited" -lt 90 ]; then
+    log_msg 'validated network available; submitting PSDS/time request'
+fi
+
 help_text=$(timeout -k 2 10 cmd location help 2>/dev/null)
 case "$help_text" in
     *send-extra-command*) ;;

@@ -39,6 +39,21 @@ cat > "$ROOT/bin/sleep" <<'EOF'
 echo "$1" >> "$TEST_ROOT/backoff"
 exit 0
 EOF
+cat > "$ROOT/bin/dumpsys" <<'EOF'
+#!/system/bin/sh
+[ "$1" = connectivity ] || exit 1
+count_file="$TEST_ROOT/network_calls"
+count=0
+[ -f "$count_file" ] && count=$(cat "$count_file")
+count=$((count + 1))
+printf '%s\n' "$count" > "$count_file"
+case "${MOCK_NETWORK:-ready}" in
+  ready) echo 'NetworkAgentInfo{ ni{WIFI CONNECTED} Score(Policies : IS_VALIDATED )' ;;
+  delayed)
+    [ "$count" -lt 2 ] || echo 'NetworkAgentInfo{ ni{WIFI CONNECTED} Score(Policies : IS_VALIDATED )'
+    ;;
+esac
+EOF
 chmod 755 "$ROOT/bin/"*
 new_case() {
     CASE="$ROOT/$1"
@@ -46,7 +61,8 @@ new_case() {
     cp "$SRC/service.sh" "$CASE/service.sh"
     : > "$ROOT/calls"
     : > "$ROOT/backoff"
-    unset MOCK_LOCATION MOCK_FAIL MOCK_DELAY MOCK_LEGACY MOCK_SHUTDOWN
+    : > "$ROOT/network_calls"
+    unset MOCK_LOCATION MOCK_FAIL MOCK_DELAY MOCK_LEGACY MOCK_SHUTDOWN MOCK_NETWORK
 }
 assert_count() {
     count=$(wc -l < "$ROOT/calls")
@@ -58,6 +74,13 @@ sh "$CASE/service.sh"
 assert_count 2
 [ -s "$CASE/runtime/requested_boot" ]
 echo 'PASS one request pair per boot and idempotent rerun'
+new_case network_ready
+export MOCK_NETWORK=delayed
+sh "$CASE/service.sh"
+assert_count 2
+[ "$(cat "$ROOT/backoff" | tr '\n' ' ')" = '5 ' ]
+grep -q 'validated network available' "$CASE/runtime/service.log"
+echo 'PASS waits for validated network before the bounded request'
 new_case disabled
 export MOCK_LOCATION=false
 sh "$CASE/service.sh"
@@ -134,7 +157,9 @@ echo 'PASS selective merge preserves hardware, PSDS types, comments; deduplicate
 ! grep -qE 'curl|/data/vendor/location|mount[[:space:]]+-o[[:space:]]+bind|while[[:space:]]+true' "$SRC/service.sh"
 grep -q 'force_psds_injection' "$SRC/service.sh"
 grep -q 'service.lock' "$SRC/service.sh"
+grep -q 'no validated network within 90 seconds' "$SRC/service.sh"
 grep -q '^allow vendor_location vendor_location_xtra_daemon process { transition siginh rlimitinh }$' "$SRC/sepolicy.rule"
+grep -q '^allow vendor_location vendor_location_xtra_daemon process signal$' "$SRC/sepolicy.rule"
 grep -q '^dontaudit vendor_location vendor_location_xtra_daemon process noatsecure$' "$SRC/sepolicy.rule"
 grep -q '^type_transition vendor_location vendor_location_xtra_daemon_exec process vendor_location_xtra_daemon$' "$SRC/sepolicy.rule"
 grep -q '^allow vendor_location_xtra_daemon vendor_location fd use$' "$SRC/sepolicy.rule"

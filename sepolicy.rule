@@ -1,6 +1,9 @@
 # Evolution X Android 17 has complete policy for the dedicated Qualcomm helper
 # domains, but loc_launcher is missing the transitions into those domains.
 allow vendor_location vendor_location_xtra_daemon process { transition siginh rlimitinh }
+# loc_launcher and loc_mq_clnt share vendor_location. They must be able to
+# signal the dedicated daemon during its normal lifecycle/recovery.
+allow vendor_location vendor_location_xtra_daemon process signal
 dontaudit vendor_location vendor_location_xtra_daemon process noatsecure
 type_transition vendor_location vendor_location_xtra_daemon_exec process vendor_location_xtra_daemon
 allow vendor_location_xtra_daemon vendor_location fd use
